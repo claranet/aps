@@ -8,6 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chzyer/readline"
 	"github.com/go-ini/ini"
 	"github.com/manifoldco/promptui"
@@ -19,6 +23,7 @@ type profile struct {
 	Region        string
 	AccountID     string
 	Role          string
+	RoleARN       string
 	SourceProfile string
 }
 
@@ -49,9 +54,9 @@ func main() {
 
 	switch {
 	case *clear == true:
-		startNewShell("", "")
+		startNewShell(profile{})
 	case *chooseRegion == true:
-		startNewShell("", selectRegion())
+		startNewShell(profile{Region: selectRegion()})
 	default:
 		startNewShell(selectProfile(listProfiles(configFile)))
 	}
@@ -73,9 +78,9 @@ func listProfiles(configFile *string) []profile {
 		var p profile
 		p.Name = reg.ReplaceAllString(n, "")
 		if cfg.Section(n).HasKey("role_arn") {
-			arn := cfg.Section(n).Key("role_arn").String()
-			r := strings.Split(arn, "/")
-			a := strings.Split(arn, ":")
+			p.RoleARN = cfg.Section(n).Key("role_arn").String()
+			r := strings.Split(p.RoleARN, "/")
+			a := strings.Split(p.RoleARN, ":")
 			p.Role = r[len(r)-1]
 			p.AccountID = a[4]
 		}
@@ -91,7 +96,9 @@ func listProfiles(configFile *string) []profile {
 	return profiles
 }
 
-func selectProfile(profiles []profile) (string, string) {
+func selectProfile(profiles []profile) profile {
+	current := os.Getenv("AWS_PROFILE")
+
 	templates := &promptui.SelectTemplates{
 		// Label: `		`,
 		Active:   `{{ "> " | cyan | bold }}{{ .Name | cyan | bold }}`,
@@ -108,7 +115,7 @@ func selectProfile(profiles []profile) (string, string) {
 	}
 
 	prompt := promptui.Select{
-		Label:             strconv.Itoa(len(profiles)) + " profiles (current: " + os.Getenv("AWS_PROFILE") + ")",
+		Label:             strconv.Itoa(len(profiles)) + " profiles (current: " + current + ")",
 		Items:             profiles,
 		Templates:         templates,
 		Size:              10,
@@ -130,7 +137,7 @@ func selectProfile(profiles []profile) (string, string) {
 		}
 	}
 
-	return profiles[selected].Name, profiles[selected].Region
+	return profiles[selected]
 }
 
 var regions = []string{
@@ -190,7 +197,7 @@ func selectRegion() string {
 	return regions[selected]
 }
 
-func startNewShell(profile, region string) {
+func startNewShell(p profile) {
 	// Get the current working directory.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -198,14 +205,17 @@ func startNewShell(profile, region string) {
 	}
 
 	switch {
-	case profile == "" && region == "":
+	case p.Name == "" && p.Region == "":
 		os.Unsetenv("AWS_PROFILE")
 		os.Unsetenv("AWS_DEFAULT_REGION")
-	case profile == "" && region != "":
-		os.Setenv("AWS_DEFAULT_REGION", region)
+	case p.Name == "" && p.Region != "":
+		os.Setenv("AWS_DEFAULT_REGION", p.Region)
 	default:
-		os.Setenv("AWS_PROFILE", profile)
-		os.Setenv("AWS_DEFAULT_REGION", region)
+		os.Setenv("AWS_PROFILE", p.Name)
+		os.Setenv("AWS_DEFAULT_REGION", p.Region)
+		if p.RoleARN != "" {
+			setIAMStsEnv(p)
+		}
 	}
 
 	// Transfer stdin, stdout, and stderr to the new process
@@ -230,4 +240,26 @@ func startNewShell(profile, region string) {
 	// Avoid stacked shell sessions, when exit/ctrl+D caller shell is killed
 	process, _ := os.FindProcess(os.Getppid())
 	process.Kill()
+}
+
+func setIAMStsEnv(p profile) {
+	awsSession := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState:       session.SharedConfigEnable,  //enable use of ~/.aws/config
+		AssumeRoleTokenProvider: stscreds.StdinTokenProvider, //ask for MFA if needed
+		Profile:                 p.Name,
+		Config:                  aws.Config{Region: aws.String(p.Region)},
+	}))
+
+	r, err := sts.New(awsSession).GetCallerIdentity(&sts.GetCallerIdentityInput{})
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	s := strings.Split(*r.UserId, ":")
+	t, err := sts.New(awsSession).AssumeRole(&sts.AssumeRoleInput{RoleArn: aws.String(p.RoleARN), RoleSessionName: aws.String(s[1])})
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	os.Setenv("AWS_ACCESS_KEY_ID", *t.Credentials.AccessKeyId)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", *t.Credentials.SecretAccessKey)
+	os.Setenv("AWS_SESSION_TOKEN", *t.Credentials.SessionToken)
 }
