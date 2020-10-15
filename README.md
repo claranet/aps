@@ -14,11 +14,12 @@ As a service provider we have to switch all the time between our customers' acco
 usage: aps [<flags>]
 
 Flags:
-      --help    Show context-sensitive help (also try --help-long and --help-man).
-  -x, --clear   Clear env vars related to AWS
-  -c, --config=$HOME/.aws/config
-                AWS config file
-  -r, --region  Region selector
+      --help                     Show context-sensitive help (also try --help-long and --help-man).
+  -x, --clear                    Clear env vars related to AWS
+  -c, --config=$HOME/.aws/config AWS config file
+  -p, --profile=PROFILE          Specify directly the AWS Profile to use
+  -r, --region=REGION            Region selector
+  -a, --assume=ASSUME            If false, auto assume role is disabled (default is true)
 ```
 
 You can select your profile/region by &larr;, &uarr;, &rarr; &darr; and filter by **Name**, or **AccountId** (only for profile). **Enter** key to validate. 
@@ -38,4 +39,4 @@ This repository uses `go mod`, so don't `git clone` inside your `$GOPATH`.
 
 ## Author
 
-Thomas Labarussias (thomas.labarussias@fr.clara.net - https://github.com/Issif)
+Thomas Labarussias (thomas.labarussias@qonto.com - https://github.com/Issif)
