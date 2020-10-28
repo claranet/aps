@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -137,6 +138,7 @@ func selectProfile(profiles []profile) profile {
 		}
 	}
 
+	fmt.Println("Active Profile: " + profiles[selected].Name)
 	return profiles[selected]
 }
 
@@ -194,6 +196,7 @@ func selectRegion() string {
 		os.Exit(0)
 	}
 
+	fmt.Println("Active Region: " + regions[selected])
 	return regions[selected]
 }
 
