@@ -32,7 +32,7 @@ You can select your profile/region by &larr;, &uarr;, &rarr; &darr; and filter b
 ## Build
 
 ```bash
-go build
+make all
 ```
 This repository uses `go mod`, so don't `git clone` inside your `$GOPATH`.
 

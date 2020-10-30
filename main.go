@@ -143,25 +143,25 @@ func selectProfile(profiles []profile) profile {
 }
 
 var regions = []string{
-	"us-east-2",
-	"us-east-1",
-	"us-west-1",
-	"us-west-2",
-	"ap-south-1",
-	"ap-northeast-3",
-	"ap-northeast-2",
-	"ap-northeast-1",
-	"ap-southeast-1",
-	"ap-southeast-2",
-	"ca-central-1",
-	"cn-north-1",
-	"cn-nortwest-1",
-	"eu-central-1",
-	"eu-west-1",
-	"eu-west-2",
-	"eu-west-3",
-	"eu-north-1",
-	"sa-east-1",
+	"us-east-2      | Ohio",
+	"us-east-1      | N. Virginia",
+	"us-west-1      | N. California",
+	"us-west-2      | Oregon",
+	"ap-south-1     | Mumbai",
+	"ap-northeast-3 | Osaka-Local",
+	"ap-northeast-2 | Seoul",
+	"ap-northeast-1 | Tokyo",
+	"ap-southeast-1 | Singapore",
+	"ap-southeast-2 | Sydney",
+	"ca-central-1   | Central",
+	"cn-north-1     | Beijing",
+	"cn-nortwest-1  | Ningxia",
+	"eu-central-1   | Frankfurt",
+	"eu-west-1      | Ireland",
+	"eu-west-2      | London",
+	"eu-west-3      | Paris",
+	"eu-north-1     | Stockholm",
+	"sa-east-1      | São Paulo",
 }
 
 func selectRegion() string {
@@ -196,8 +196,10 @@ func selectRegion() string {
 		os.Exit(0)
 	}
 
+	regionWithOutName := strings.Trim(strings.Split(regions[selected], "|")[0], " ")
+
 	fmt.Println("Active Region: " + regions[selected])
-	return regions[selected]
+	return regionWithOutName
 }
 
 func startNewShell(p profile) {
