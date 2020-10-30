@@ -53,6 +53,14 @@ func (s *stderr) Close() error {
 func main() {
 	readline.Stdout = &stderr{}
 
+	for i, j := range os.Args {
+		if j == "-r" || j == "--region" {
+			if len(os.Args) == 2 {
+				os.Args[i] = "--region=000"
+			}
+		}
+	}
+
 	kingpin.Parse()
 
 	switch {
@@ -93,7 +101,9 @@ func listProfiles(configFile *string) []profile {
 		if cfg.Section(n).HasKey("region") {
 			p.Region = cfg.Section(n).Key("region").String()
 		}
-		profiles = append(profiles, p)
+		if p.Name != "DEFAULT" {
+			profiles = append(profiles, p)
+		}
 	}
 
 	return profiles
@@ -155,7 +165,6 @@ func selectProfile(profiles []profile) profile {
 		}
 	}
 
-	fmt.Println("Active Profile: " + profiles[selected].Name)
 	return profiles[selected]
 }
 
@@ -182,7 +191,7 @@ var regions = []string{
 }
 
 func selectRegion(r *string) string {
-	if *r != "" {
+	if *r != "000" {
 		return *r
 	}
 	templates := &promptui.SelectTemplates{
@@ -218,7 +227,6 @@ func selectRegion(r *string) string {
 
 	regionWithOutName := strings.Trim(strings.Split(regions[selected], "|")[0], " ")
 
-	fmt.Println("Active Region: " + regions[selected])
 	return regionWithOutName
 }
 
@@ -235,9 +243,12 @@ func startNewShell(p profile) {
 		os.Unsetenv("AWS_DEFAULT_REGION")
 	case p.Name == "" && p.Region != "":
 		os.Setenv("AWS_DEFAULT_REGION", p.Region)
+		fmt.Println("Active Region: \033[1m" + p.Region + "\033[0m")
 	default:
 		os.Setenv("AWS_PROFILE", p.Name)
+		fmt.Println("Active Profile: \033[1m" + p.Name + "\033[0m")
 		os.Setenv("AWS_DEFAULT_REGION", p.Region)
+		fmt.Println("Active Region: \033[1m" + p.Region + "\033[0m")
 		if p.RoleARN != "" && *assume != "false" {
 			setIAMStsEnv(p)
 		}

@@ -29,7 +29,6 @@ You can select your profile/region by &larr;, &uarr;, &rarr; &darr; and filter b
 ![screenshot1](./img/screenshot1.png)
 ![screenshot2](./img/screenshot2.png)
 
-
 ## Build
 
 ```bash
