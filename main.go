@@ -198,7 +198,7 @@ func selectRegion() string {
 
 	regionWithOutName := strings.Trim(strings.Split(regions[selected], "|")[0], " ")
 
-	fmt.Println("Active Region: " + regionWithOutName)
+	fmt.Println("Active Region: " + regions[selected])
 	return regionWithOutName
 }
 
