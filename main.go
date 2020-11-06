@@ -101,9 +101,6 @@ func listProfiles(configFile *string) []profile {
 		if cfg.Section(n).HasKey("region") {
 			p.Region = cfg.Section(n).Key("region").String()
 		}
-		if p.Name != "DEFAULT" {
-			profiles = append(profiles, p)
-		}
 	}
 
 	return profiles
