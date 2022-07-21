@@ -29,9 +29,11 @@ type profile struct {
 }
 
 var (
-	clear        = kingpin.Flag("clear", "Clear env vars related to AWS").Short('x').Bool()
-	configFile   = kingpin.Flag("config", "AWS config file").Short('c').Default(os.Getenv("HOME") + "/.aws/config").ExistingFile()
-	chooseRegion = kingpin.Flag("region", "Region selector").Short('r').Bool()
+	clear         = kingpin.Flag("clear", "Clear env vars related to AWS").Short('x').Bool()
+	configFile    = kingpin.Flag("config", "AWS config file").Short('c').Default(os.Getenv("HOME") + "/.aws/config").ExistingFile()
+	chooseProfile = kingpin.Flag("profile", "Specify directly the AWS Profile to use").Short('p').String()
+	chooseRegion  = kingpin.Flag("region", "Region selector").Short('r').String()
+	assume        = kingpin.Flag("assume", "If false, auto assume role is disabled (default is true)").Short('a').String()
 )
 
 // Hack from https://github.com/manifoldco/promptui/issues/49#issuecomment-428801411 to avoid annoying bell in some OS
@@ -51,13 +53,21 @@ func (s *stderr) Close() error {
 func main() {
 	readline.Stdout = &stderr{}
 
+	for i, j := range os.Args {
+		if j == "-r" || j == "--region" {
+			if len(os.Args) == 2 {
+				os.Args[i] = "--region=000"
+			}
+		}
+	}
+
 	kingpin.Parse()
 
 	switch {
 	case *clear == true:
 		startNewShell(profile{})
-	case *chooseRegion == true:
-		startNewShell(profile{Region: selectRegion()})
+	case *chooseRegion != "":
+		startNewShell(profile{Region: selectRegion(chooseRegion)})
 	default:
 		startNewShell(selectProfile(listProfiles(configFile)))
 	}
@@ -91,13 +101,27 @@ func listProfiles(configFile *string) []profile {
 		if cfg.Section(n).HasKey("region") {
 			p.Region = cfg.Section(n).Key("region").String()
 		}
-		profiles = append(profiles, p)
 	}
 
 	return profiles
 }
 
 func selectProfile(profiles []profile) profile {
+	if *chooseProfile != "" {
+		for _, i := range profiles {
+			if i.Name == *chooseProfile {
+				if i.Region == "" {
+					if os.Getenv("AWS_DEFAULT_REGION") != "" {
+						i.Region = os.Getenv("AWS_DEFAULT_REGION")
+					} else {
+						i.Region = selectRegion(chooseRegion)
+					}
+				}
+				return i
+			}
+		}
+	}
+
 	current := os.Getenv("AWS_PROFILE")
 
 	templates := &promptui.SelectTemplates{
@@ -134,11 +158,10 @@ func selectProfile(profiles []profile) profile {
 		if os.Getenv("AWS_DEFAULT_REGION") != "" {
 			profiles[selected].Region = os.Getenv("AWS_DEFAULT_REGION")
 		} else {
-			profiles[selected].Region = selectRegion()
+			profiles[selected].Region = selectRegion(chooseRegion)
 		}
 	}
 
-	fmt.Println("Active Profile: " + profiles[selected].Name)
 	return profiles[selected]
 }
 
@@ -164,7 +187,10 @@ var regions = []string{
 	"sa-east-1      | São Paulo",
 }
 
-func selectRegion() string {
+func selectRegion(r *string) string {
+	if *r != "000" {
+		return *r
+	}
 	templates := &promptui.SelectTemplates{
 		// Label: `		`,
 		Active:   `{{ "> " | cyan | bold }}{{ . | cyan | bold }}`,
@@ -198,7 +224,6 @@ func selectRegion() string {
 
 	regionWithOutName := strings.Trim(strings.Split(regions[selected], "|")[0], " ")
 
-	fmt.Println("Active Region: " + regions[selected])
 	return regionWithOutName
 }
 
@@ -215,10 +240,13 @@ func startNewShell(p profile) {
 		os.Unsetenv("AWS_DEFAULT_REGION")
 	case p.Name == "" && p.Region != "":
 		os.Setenv("AWS_DEFAULT_REGION", p.Region)
+		fmt.Println("Active Region: \033[1m" + p.Region + "\033[0m")
 	default:
 		os.Setenv("AWS_PROFILE", p.Name)
+		fmt.Println("Active Profile: \033[1m" + p.Name + "\033[0m")
 		os.Setenv("AWS_DEFAULT_REGION", p.Region)
-		if p.RoleARN != "" {
+		fmt.Println("Active Region: \033[1m" + p.Region + "\033[0m")
+		if p.RoleARN != "" && *assume != "false" {
 			setIAMStsEnv(p)
 		}
 	}
